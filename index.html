@@ -26,7 +26,7 @@
         
         @media print {
             body { background-color: #fff; font-size: 12px; }
-            header, footer, .toggle-ref, .score-btn-container, label[for^="notes-"] { display: none; }
+            header, footer, .toggle-ref, .score-btn-container, label[for^="notes-"], #login-screen { display: none !important; }
             .container { margin: 0; padding: 1rem; max-width: 100%; }
             section, main { box-shadow: none !important; border: none !important; margin: 0 0 1.5rem 0 !important; padding: 0 !important; }
             #candidate-info { padding: 0 !important; }
@@ -57,12 +57,36 @@
             .chart-container { height: 300px !important; }
             #recommendation-box { border: 2px solid #ccc; }
             .print-score-display { display: block !important; font-weight: bold; margin-top: 0.5rem; background-color: #eef2ff; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+            #main-content { display: block !important; }
         }
     </style>
 </head>
 <body class="text-slate-800">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+    <div id="login-screen" class="flex items-center justify-center min-h-screen bg-slate-100">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
+            <div class="text-center">
+                <h1 class="text-3xl font-bold text-slate-900">Login</h1>
+                <p class="text-slate-500 mt-2">Silakan masuk untuk mengakses formulir wawancara.</p>
+            </div>
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-slate-700">User Name</label>
+                    <input type="email" id="username" name="username" required class="w-full mt-1 p-3 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]" placeholder="hr@mip.co.id">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-slate-700">Password</label>
+                    <input type="password" id="password" name="password" required class="w-full mt-1 p-3 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]" placeholder="••••••••">
+                </div>
+                <p id="login-error" class="text-red-500 text-sm text-center hidden">Username atau password salah.</p>
+                <div>
+                    <button type="submit" class="w-full bg-[#007DB8] text-white font-bold py-3 px-4 rounded-lg hover:bg-[#005a8d] transition-colors shadow-lg shadow-blue-500/20">Masuk</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="main-content" class="container mx-auto p-4 md:p-8 max-w-5xl hidden">
         <header class="text-center mb-8">
             <h1 class="text-3xl font-bold text-slate-900">Formulir Wawancara Interaktif</h1>
             <p class="text-lg text-[#007DB8] mt-2">Posisi: Service Provider (Field Support) - PT Mitra Infoparama</p>
@@ -187,12 +211,15 @@
             </div>
         </section>
         
-        <footer class="text-center mt-8">
-            <button onclick="handlePrint()" class="bg-[#007DB8] text-white font-bold py-3 px-8 rounded-lg hover:bg-[#005a8d] transition-colors shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40">
+        <footer class="text-center mt-8 flex flex-wrap justify-center gap-4">
+            <button onclick="handlePrint()" class="bg-[#007DB8] text-white font-bold py-3 px-6 rounded-lg hover:bg-[#005a8d] transition-colors shadow-lg shadow-blue-500/20">
                 Cetak Hasil
             </button>
-            <button onclick="resetForm()" class="bg-slate-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-slate-700 transition-colors shadow-lg shadow-slate-500/20 hover:shadow-slate-500/40 ml-4">
+            <button onclick="resetForm()" class="bg-slate-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors shadow-lg shadow-slate-500/20">
                 Reset Form
+            </button>
+            <button onclick="handleLogout()" class="bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition-colors shadow-lg shadow-red-500/20">
+                Logout
             </button>
         </footer>
     </div>
@@ -253,8 +280,33 @@ const interviewData = [
 
 const scores = {};
 let summaryChart;
+const users = {
+    "hr1@mip.co.id": "123",
+    "hr2@mip.co.id": "123"
+};
 
 document.addEventListener('DOMContentLoaded', function () {
+    const loginForm = document.getElementById('login-form');
+    loginForm.addEventListener('submit', handleLogin);
+
+    initializeInterviewForm();
+});
+
+function handleLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const errorEl = document.getElementById('login-error');
+
+    if (users[username] && users[username] === password) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main-content').classList.remove('hidden');
+    } else {
+        errorEl.classList.remove('hidden');
+    }
+}
+
+function initializeInterviewForm() {
     const formContainer = document.getElementById('interview-form');
     interviewData.forEach((section) => {
         const sectionEl = document.createElement('div');
@@ -301,7 +353,8 @@ document.addEventListener('DOMContentLoaded', function () {
     
     addEventListeners();
     initializeChart();
-});
+}
+
 
 function addEventListeners() {
     document.querySelectorAll('.accordion-header').forEach(header => {
@@ -493,6 +546,20 @@ function resetForm() {
 
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function handleLogout() {
+    if (confirm("Apakah Anda yakin ingin logout?")) {
+        // Optionally reset form on logout
+        resetForm(false); // Pass false to suppress the inner confirmation
+        
+        document.getElementById('main-content').classList.add('hidden');
+        document.getElementById('login-screen').style.display = 'flex';
+        
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+        document.getElementById('login-error').classList.add('hidden');
     }
 }
 
