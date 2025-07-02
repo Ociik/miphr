@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Wawancara Interaktif - PT Mitra Infoparama</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: Dell Corporate Theme (#007DB8, #7D7D7D, #F5F5F5) -->
+    <!-- Application Structure Plan: The SPA is designed as a dynamic, single-page interview toolkit. It uses an accordion structure to organize question categories (Teknis, Studi Kasus, Perilaku, Psikotes), allowing the interviewer to focus on one section at a time. Each question has a notes field, interactive scoring buttons, and a toggleable "Reference Answer" to guide evaluation. A live summary section at the bottom automatically calculates scores and visualizes performance with a chart, providing an immediate overview. This structure transforms a static form into an efficient, interactive workflow for candidate assessment. -->
+    <!-- Visualization & Content Choices: 
+        - Interview Sections: Organize -> Accordion Layout -> Allows focus on one category at a time, reducing clutter -> HTML/Tailwind/JS. Justification: Better than tabs for a linear interview flow. NO SVG/Mermaid.
+        - Scoring: Interact -> Clickable Buttons -> Provides clear, immediate input for each question's score -> HTML/Tailwind/JS. Justification: More intuitive and faster than manual entry. NO SVG.
+        - Performance Summary: Compare/Inform -> Bar Chart -> Visualizes the average score for each interview category -> Chart.js/Canvas. Justification: Offers a quick, comparative view of the candidate's strengths and weaknesses. NO SVG.
+        - Reference Answers: Inform -> Toggleable Content -> Hides ideal answers by default to prevent bias, but keeps them accessible -> HTML/Tailwind/JS. Justification: Improves evaluation integrity. NO SVG.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { background-color: #f5f5f5; font-family: 'Inter', sans-serif; }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-in-out; }
+        .score-btn { transition: all 0.2s ease-in-out; }
+        .score-btn.active { background-color: #007DB8; color: white; transform: scale(1.1); box-shadow: 0 4px 14px 0 rgba(0, 125, 184, 0.35); }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin: auto; height: 250px; }
+        .accordion-header.open span:last-child { transform: rotate(180deg); }
+        
+        @media print {
+            body { background-color: #fff; font-size: 12px; }
+            header, footer, .toggle-ref, .score-btn-container, label[for^="notes-"] { display: none; }
+            .container { margin: 0; padding: 1rem; max-width: 100%; }
+            section, main { box-shadow: none !important; border: none !important; margin: 0 0 1.5rem 0 !important; padding: 0 !important; }
+            #candidate-info { padding: 0 !important; }
+            .accordion-content { max-height: none !important; overflow: visible !important; padding: 0 !important; border: none !important; }
+            .accordion-header { background-color: #fff !important; padding: 1rem 0 !important; border-bottom: 2px solid #e2e8f0; }
+            .accordion-header span:last-child { display: none; }
+            input, select, textarea { 
+                border: none !important; 
+                padding: 0 !important; 
+                background-color: transparent !important;
+                resize: none;
+                height: auto;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+            }
+            select {
+                background-image: none !important;
+            }
+            textarea {
+                border-top: 1px solid #e2e8f0 !important;
+                padding-top: 0.5rem !important;
+                background-color: #f8fafc !important;
+            }
+            #summary { page-break-before: always; }
+            .grid { grid-template-columns: 1fr !important; }
+            .md\:grid-cols-2 { grid-template-columns: 1fr !important; }
+            .chart-container { height: 300px !important; }
+            #recommendation-box { border: 2px solid #ccc; }
+            .print-score-display { display: block !important; font-weight: bold; margin-top: 0.5rem; background-color: #eef2ff; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-slate-900">Formulir Wawancara Interaktif</h1>
+            <p class="text-lg text-[#007DB8] mt-2">Posisi: Service Provider (Field Support) - PT Mitra Infoparama</p>
+        </header>
+
+        <section id="candidate-info" class="mb-8 p-6 bg-white rounded-xl shadow-md">
+             <div class="grid md:grid-cols-2 gap-x-8 gap-y-6">
+                <!-- Candidate Details Column -->
+                <div class="space-y-4">
+                    <h2 class="text-xl font-semibold text-slate-800 border-b pb-2">Identitas Kandidat</h2>
+                    <div>
+                        <label for="candidateName" class="block text-sm font-medium text-slate-700 mb-1">Nama Kandidat</label>
+                        <input type="text" id="candidateName" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="candidatePhone" class="block text-sm font-medium text-slate-700 mb-1">Nomor Seluler</label>
+                            <input type="tel" id="candidatePhone" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]">
+                        </div>
+                        <div>
+                            <label for="candidateEmail" class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                            <input type="email" id="candidateEmail" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]">
+                        </div>
+                    </div>
+                     <div>
+                        <label for="candidateEducation" class="block text-sm font-medium text-slate-700 mb-1">Pendidikan Terakhir & Jurusan</label>
+                        <input type="text" id="candidateEducation" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]" placeholder="Contoh: S1 Teknik Informatika">
+                    </div>
+                    <div>
+                        <label for="candidateExperience" class="block text-sm font-medium text-slate-700 mb-1">Pengalaman Kerja Terakhir</label>
+                        <input type="text" id="candidateExperience" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]" placeholder="Contoh: IT Support di PT ABC">
+                    </div>
+                    <div>
+                        <label for="candidateAddress" class="block text-sm font-medium text-slate-700 mb-1">Alamat Kandidat</label>
+                        <textarea id="candidateAddress" rows="2" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]"></textarea>
+                    </div>
+                </div>
+
+                <!-- Interviewer Details Column -->
+                <div class="space-y-4">
+                    <h2 class="text-xl font-semibold text-slate-800 border-b pb-2">Detail Wawancara</h2>
+                     <div>
+                        <label for="interviewDate" class="block text-sm font-medium text-slate-700 mb-1">Tanggal Wawancara</label>
+                        <input type="date" id="interviewDate" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]">
+                    </div>
+                    <div>
+                        <label for="interviewerName" class="block text-sm font-medium text-slate-700 mb-1">Nama Pewawancara</label>
+                        <input type="text" id="interviewerName" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]">
+                    </div>
+                    <div>
+                        <label for="interviewerDepartment" class="block text-sm font-medium text-slate-700 mb-1">Divisi/Departemen Pewawancara</label>
+                        <select id="interviewerDepartment" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8] bg-white">
+                            <option>HR</option>
+                            <option>Service Delivery Manager</option>
+                            <option>Project</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="interviewerPosition" class="block text-sm font-medium text-slate-700 mb-1">Jabatan Pewawancara</label>
+                        <select id="interviewerPosition" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8] bg-white">
+                            <option>General Manager</option>
+                            <option>Manager</option>
+                            <option>Supervisior</option>
+                            <option>Leader</option>
+                            <option>Staff</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <main id="interview-form" class="space-y-4">
+            <!-- Questions will be dynamically inserted here -->
+        </main>
+
+        <section id="summary" class="mt-8 p-6 bg-white rounded-xl shadow-md">
+            <h2 class="text-2xl font-bold text-slate-900 mb-4 border-b pb-3">Ringkasan Penilaian & Rekomendasi</h2>
+            <div class="grid md:grid-cols-2 gap-8 items-start">
+                <div>
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        <div class="bg-slate-100 p-4 rounded-lg">
+                            <p class="text-sm text-slate-500">Total Skor</p>
+                            <p id="total-score" class="text-3xl font-bold text-slate-800">0 / 0</p>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <p class="text-sm text-[#007DB8]">Rata-rata Skor</p>
+                            <p id="average-score" class="text-3xl font-bold text-[#007DB8]">0.0</p>
+                        </div>
+                        <div id="recommendation-box" class="col-span-2 p-4 rounded-lg bg-slate-100 transition-colors duration-300">
+                            <p id="recommendation-label" class="text-sm font-medium text-slate-500">Rekomendasi Otomatis</p>
+                            <p id="recommendation-text" class="text-2xl font-bold text-slate-800 mt-1">Menunggu Penilaian</p>
+                        </div>
+                    </div>
+                     <div class="mt-6">
+                        <label for="recommendation-notes" class="block text-sm font-medium text-slate-700 mb-2">Justifikasi & Rekomendasi Akhir</label>
+                        <textarea id="recommendation-notes" rows="4" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]" placeholder="Tuliskan catatan akhir dan rekomendasi Anda di sini..."></textarea>
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-lg font-semibold text-center mb-2">Skor Rata-rata per Kategori</h3>
+                        <div class="chart-container">
+                            <canvas id="summaryChart"></canvas>
+                        </div>
+                    </div>
+                    <div id="automated-analysis" class="mt-6 space-y-4 border-t pt-4">
+                        <h3 class="text-lg font-semibold text-slate-800">Analisa Otomatis</h3>
+                        <div>
+                            <h4 class="font-semibold text-slate-700">Pribadi & Perilaku</h4>
+                            <p id="analysis-pribadi" class="text-sm text-slate-600 italic mt-1">Menunggu penilaian untuk membuat analisa.</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-slate-700">Kekuatan Utama</h4>
+                            <p id="analysis-kekuatan" class="text-sm text-green-800 bg-green-100 p-2 rounded-md mt-1">Menunggu penilaian untuk membuat analisa.</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-slate-700">Area Peningkatan</h4>
+                            <p id="analysis-peningkatan" class="text-sm text-amber-800 bg-amber-100 p-2 rounded-md mt-1">Menunggu penilaian untuk membuat analisa.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <footer class="text-center mt-8">
+            <button onclick="handlePrint()" class="bg-[#007DB8] text-white font-bold py-3 px-8 rounded-lg hover:bg-[#005a8d] transition-colors shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40">
+                Cetak Hasil
+            </button>
+            <button onclick="resetForm()" class="bg-slate-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-slate-700 transition-colors shadow-lg shadow-slate-500/20 hover:shadow-slate-500/40 ml-4">
+                Reset Form
+            </button>
+        </footer>
+    </div>
+
+<script>
+const interviewData = [
+    {
+        category: "I. Pertanyaan Teknis",
+        questions: [
+            { id: 1, text: "Jelaskan langkah-langkah yang Anda ambil dari awal hingga akhir saat menerima laptop pelanggan yang mengalami kondisi mati total (no power).", ref: "Menanyakan kronologi kejadian. Pemeriksaan fisik awal. Verifikasi adaptor. Coba tanpa baterai. Bongkar untuk cek internal (DC-in, motherboard, RAM). Gunakan multimeter untuk cek tegangan. Isolasi masalah. Komunikasikan temuan ke pelanggan." },
+            { id: 2, text: "Sebuah PC menyala (lampu & kipas berputar) namun tidak ada tampilan di monitor (no display). Apa urutan troubleshooting Anda?", ref: "Cek koneksi & power monitor. Tes monitor di perangkat lain. Cek & pasang ulang (reseat) RAM. Cek & reseat kartu grafis (GPU). Coba gunakan port output grafis yang berbeda (onboard/GPU). Dengarkan kode beep dari motherboard." },
+            { id: 3, text: "Laptop berhasil menyala namun gagal masuk ke Windows (no boot), hanya berhenti di logo atau berputar-putar. Apa yang Anda lakukan?", ref: "Coba masuk ke Safe Mode. Jalankan Startup Repair. Cek urutan boot di BIOS/UEFI. Cek kesehatan hard disk/SSD dari bootable USB. Jalankan `sfc /scannow` dan `chkdsk` dari command prompt." },
+            { id: 4, text: "Anda menghadapi Blue Screen of Death (BSOD). Informasi apa yang Anda cari dari layar tersebut dan apa langkah selanjutnya?", ref: "Catat kode error (misal: IRQL_NOT_LESS_OR_EQUAL). Cari arti kode error tersebut. Ingat-ingat perubahan terakhir (install software/hardware baru). Cek RAM dengan MemTest86. Cek kesehatan disk. Update/rollback driver yang relevan." },
+            { id: 5, text: "Pelanggan mengeluh laptopnya sangat panas dan sering mati sendiri saat digunakan untuk tugas berat. Apa diagnosis dan solusi Anda?", ref: "Diagnosis: Kemungkinan besar overheating karena debu yang menyumbat ventilasi/kipas atau pasta termal (thermal paste) yang sudah kering. Solusi: Bongkar laptop, bersihkan debu dari heatsink dan kipas secara menyeluruh, ganti thermal paste pada CPU dan GPU." },
+            { id: 6, text: "Seorang pelanggan mengeluh koneksi Wi-Fi laptopnya sering putus-putus setelah update Windows. Apa saja kemungkinan penyebabnya dan bagaimana urutan troubleshooting Anda?", ref: "Pastikan bukan dari router. Cek driver Wi-Fi di Device Manager (update/rollback). Jalankan Network Troubleshooter. Reset network settings. Cek Power Management. Pertimbangkan kemungkinan masalah hardware jika software gagal." },
+            { id: 7, text: "Apa pertimbangan utama Anda saat merekomendasikan upgrade dari HDD ke SSD kepada pelanggan? Jelaskan kelebihan dan potensi risikonya.", ref: "Kelebihan: Kecepatan drastis, hemat daya, tahan guncangan. Pertimbangan: Kebutuhan pengguna, budget, kapasitas. Proses & Risiko: Jelaskan proses kloning data. Risiko kegagalan kloning (pentingnya backup)." },
+            { id: 8, text: "Jelaskan proses Anda untuk membersihkan komputer yang terinfeksi virus atau malware berat.", ref: "Putuskan koneksi internet. Boot ke Safe Mode. Gunakan beberapa program antivirus/antimalware (misal: Malwarebytes, AdwCleaner). Hapus file temporary. Periksa program yang berjalan saat startup dan ekstensi browser. Edukasi pelanggan tentang pencegahan." },
+            { id: 9, text: "Pelanggan tidak sengaja menghapus file penting dan sudah mengosongkan Recycle Bin. Apa yang Anda jelaskan dan lakukan?", ref: "Jelaskan untuk segera berhenti menggunakan komputer agar data tidak tertimpa. Jelaskan bahwa ada kemungkinan data bisa diselamatkan menggunakan software recovery (misal: Recuva). Tawarkan jasa recovery sambil memberikan ekspektasi yang realistis (tidak semua data mungkin kembali)." },
+            { id: 10, text: "Apa perbedaan mendasar antara memori RAM DDR3 dan DDR4? Mengapa keduanya tidak bisa ditukar?", ref: "Perbedaan utama ada pada kecepatan (speed), voltase (DDR4 lebih rendah), dan jumlah pin serta posisi 'notch' (cekungan) pada modul fisiknya. Karena perbedaan fisik (notch) dan elektrikal (voltase) ini, keduanya tidak kompatibel dan tidak bisa dipasang di slot yang salah." }
+        ]
+    },
+    {
+        category: "II. Pertanyaan Studi Kasus",
+        questions: [
+            { id: 11, text: "Bayangkan seorang pelanggan marah karena perbaikan perangkatnya lebih lama dari estimasi awal. Bagaimana Anda menangani situasi ini?", ref: "Tetap tenang, dengarkan tanpa interupsi. Tunjukkan empati. Jelaskan penyebab keterlambatan secara jujur. Berikan timeline baru yang realistis & tawarkan update berkala. Fokus pada solusi." },
+            { id: 12, text: "Anda menemukan kerusakan yang belum pernah Anda tangani sebelumnya pada perangkat all-in-one yang kompleks. Apa langkah-langkah yang akan Anda lakukan?", ref: "Tidak panik. Riset dulu (dokumentasi resmi, forum, video). Konsultasi dengan tim/senior. Diagnostik hati-hati & terdokumentasi. Jika di luar kapabilitas, jujur pada atasan/pelanggan dan tawarkan solusi alternatif." },
+            { id: 13, text: "Pelanggan membawa tablet untuk perbaikan layar dan sangat khawatir dengan keamanan data pribadinya. Prosedur apa yang Anda ikuti untuk melindungi datanya?", ref: "Yakinkan pelanggan privasi adalah prioritas. Tawarkan backup data. Jelaskan perbaikan tidak mengakses data. Bekerja di area aman. Tunjukkan data utuh setelah perbaikan." },
+            { id: 14, text: "Seorang pelanggan datang untuk upgrade RAM. Anda melihat hard disknya sudah tua dan lambat. Bagaimana Anda menawarkan upgrade SSD tambahan tanpa terkesan memaksa?", ref: "Selesaikan permintaan utama (RAM). Lalu, jelaskan secara edukatif bahwa performa maksimal dari RAM baru akan terhambat oleh HDD lama. Tunjukkan perbandingan kecepatan (jika ada data). Berikan opsi dan harga yang jelas, lalu biarkan pelanggan memutuskan. Hormati keputusannya." },
+            { id: 15, text: "Sebuah perangkat menunjukkan masalah yang hilang-timbul (intermittent) dan tidak muncul saat Anda tes. Bagaimana Anda menanganinya?", ref: "Dengarkan dengan seksama deskripsi pelanggan tentang kapan masalah terjadi. Jalankan tes diagnostik jangka panjang (stress test). Periksa log sistem untuk mencari catatan error. Komunikasikan dengan jujur bahwa masalah ini sulit didiagnosis dan mungkin perlu observasi lebih lama." }
+        ]
+    },
+    {
+        category: "III. Pertanyaan Perilaku / Soft Skills",
+        questions: [
+            { id: 16, text: "Ceritakan pengalaman Anda ketika harus menangani beberapa permintaan servis dalam satu hari. Bagaimana Anda mengatur prioritas dan waktu Anda?", ref: "Jelaskan cara kategorisasi (urgensi, kompleksitas). Sebutkan penggunaan alat bantu (kalender, to-do list). Jelaskan pentingnya komunikasi proaktif jika ada penundaan. Berikan contoh spesifik (STAR method)." },
+            { id: 17, text: "Bagaimana cara Anda tetap up-to-date dengan perkembangan teknologi, perangkat keras, dan sistem operasi terbaru?", ref: "Sebutkan sumber spesifik (situs berita, channel YouTube, forum). Sebutkan kebiasaan pribadi (mencoba di VM, membongkar perangkat sendiri)." },
+            { id: 18, text: "Ceritakan saat Anda membuat kesalahan dalam perbaikan. Apa yang Anda lakukan untuk memperbaikinya dan apa yang Anda pelajari?", ref: "Jujur mengakui kesalahan. Segera lapor atasan/pelanggan. Fokus tindakan korektif. Jelaskan pelajaran yang didapat dan bagaimana itu mengubah cara kerja." },
+            { id: 19, text: "Jelaskan situasi di mana Anda harus bekerja sama dengan teknisi lain untuk memecahkan masalah yang sulit. Apa peran Anda dalam tim tersebut?", ref: "Cari contoh kolaborasi yang efektif, berbagi pengetahuan, dan fokus pada tujuan bersama. Jelaskan perannya (misal: sebagai eksekutor, peneliti, atau pemberi ide) dan bagaimana kontribusinya membantu tim." },
+            { id: 20, text: "Menurut Anda, apa tiga kualitas terpenting yang harus dimiliki oleh seorang Service Provider (Field Support) yang sukses?", ref: "Kombinasi teknis & soft skills. Contoh: 1. Problem-Solving (analisis mendalam), 2. Empati & Komunikasi, 3. Ketelitian & Integritas." }
+        ]
+    },
+    {
+        category: "IV. Pertanyaan Psikotes",
+        questions: [
+            { id: 21, text: "Jika Anda dihadapkan pada dua tugas mendesak dari dua pelanggan berbeda, bagaimana Anda memutuskan mana yang akan dikerjakan lebih dulu?", ref: "Analisis berdasarkan urgensi (dampak bisnis pelanggan), kompleksitas (waktu pengerjaan), dan Service Level Agreement (SLA). Komunikasikan estimasi waktu kepada kedua pelanggan." },
+            { id: 22, text: "Apa yang akan Anda lakukan jika Anda secara tidak sengaja merusak properti pelanggan saat melakukan perbaikan?", ref: "Segera berhenti bekerja, akui kesalahan secara jujur kepada pelanggan, laporkan kepada atasan, dan tawarkan solusi atau proses klaim sesuai kebijakan perusahaan. Menunjukkan integritas." },
+            { id: 23, text: "Jelaskan pendekatan Anda saat menghadapi tugas yang monoton atau berulang. Bagaimana Anda menjaga kualitas kerja tetap tinggi?", ref: "Fokus pada detail kecil, mencari cara untuk membuat proses lebih efisien, dan memahami pentingnya tugas tersebut dalam gambaran besar. Mengambil jeda singkat untuk menjaga konsentrasi." },
+            { id: 24, text: "Ceritakan situasi kerja yang paling menekan yang pernah Anda alami. Apa yang membuatnya menekan dan bagaimana Anda melewatinya?", ref: "Gunakan metode STAR. Fokus pada bagaimana kandidat tetap tenang, logis, dan mencari solusi di bawah tekanan, bukan menyalahkan situasi." },
+            { id: 25, text: "Jika Anda menyelesaikan semua tugas Anda lebih cepat dari jadwal, apa yang akan Anda lakukan dengan sisa waktu Anda?", ref: "Jawaban ideal menunjukkan proaktivitas: mereview pekerjaan, merapikan alat, membantu rekan kerja, belajar hal baru terkait pekerjaan, atau bertanya kepada atasan untuk tugas tambahan." },
+            { id: 26, text: "Pelanggan memberikan ulasan negatif tentang pekerjaan Anda, meskipun Anda merasa sudah melakukan yang terbaik. Bagaimana reaksi Anda?", ref: "Tidak defensif. Ucapkan terima kasih atas masukannya, coba pahami perspektif pelanggan, dan lihat apakah ada hal yang bisa dipelajari atau diperbaiki dari pengalaman tersebut. Introspeksi." },
+            { id: 27, text: "Bayangkan perusahaan memperkenalkan alat diagnostik atau sistem pelaporan baru yang harus Anda gunakan. Bagaimana Anda beradaptasi dengan perubahan ini?", ref: "Menunjukkan sikap positif terhadap perubahan. Aktif mengikuti pelatihan, membaca manual, mencoba alat baru, dan tidak ragu bertanya jika ada kesulitan. Melihatnya sebagai kesempatan belajar." },
+            { id: 28, text: "Saat menghadapi masalah teknis yang rumit, apakah Anda lebih suka menyelesaikannya sendiri atau segera meminta bantuan rekan kerja? Jelaskan alasannya.", ref: "Jawaban seimbang adalah yang terbaik. Mencoba menyelesaikan sendiri terlebih dahulu untuk melatih problem-solving, namun tahu kapan harus berhenti dan meminta bantuan agar tidak membuang waktu dan berisiko lebih besar." },
+            { id: 29, text: "Seberapa penting bagi Anda untuk mengikuti setiap langkah dalam checklist atau prosedur standar operasi (SOP)? Berikan contoh.", ref: "Sangat penting. SOP ada untuk memastikan konsistensi, kualitas, dan keamanan. Contoh: selalu mengikuti checklist diagnostik untuk memastikan tidak ada langkah yang terlewat, meskipun masalahnya terlihat sederhana." },
+            { id: 30, text: "Apa yang paling memotivasi Anda dalam pekerjaan sebagai teknisi lapangan, selain dari gaji?", ref: "Jawaban yang baik berpusat pada kepuasan intrinsik: kepuasan memecahkan masalah yang rumit, rasa senang saat membantu pelanggan, kesempatan untuk terus belajar teknologi baru, atau menjadi bagian dari tim yang solid." }
+        ]
+    }
+];
+
+const scores = {};
+let summaryChart;
+
+document.addEventListener('DOMContentLoaded', function () {
+    const formContainer = document.getElementById('interview-form');
+    interviewData.forEach((section) => {
+        const sectionEl = document.createElement('div');
+        sectionEl.className = 'bg-white rounded-xl shadow-md';
+
+        const headerEl = document.createElement('h2');
+        headerEl.className = 'accordion-header cursor-pointer text-xl font-semibold text-slate-800 p-5 flex justify-between items-center border-b border-slate-200';
+        headerEl.innerHTML = `<span>${section.category}</span><span class="transform transition-transform duration-300 text-slate-400">▼</span>`;
+        
+        const contentEl = document.createElement('div');
+        contentEl.className = 'accordion-content';
+        const contentInnerEl = document.createElement('div');
+        contentInnerEl.className = 'p-5 space-y-6';
+
+        section.questions.forEach(q => {
+            const questionWrapper = document.createElement('div');
+            questionWrapper.className = 'py-2 question-block';
+            questionWrapper.innerHTML = `
+                <p class="font-semibold text-slate-800">${q.id}. ${q.text}</p>
+                <div class="mt-2">
+                    <button class="toggle-ref text-sm text-[#007DB8] hover:underline mb-2">Tampilkan/Sembunyikan Referensi Jawaban</button>
+                    <p class="reference-answer hidden text-sm bg-blue-50 p-3 rounded-md border border-blue-200">${q.ref}</p>
+                </div>
+                <div class="mt-3">
+                    <label for="notes-${q.id}" class="block text-sm font-medium text-slate-600 mb-1">Catatan Pewawancara:</label>
+                    <textarea id="notes-${q.id}" rows="3" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-[#007DB8] focus:border-[#007DB8]"></textarea>
+                </div>
+                <div class="mt-3 flex items-center gap-4 flex-wrap score-btn-container">
+                    <label class="text-sm font-medium text-slate-600">Penilaian:</label>
+                    <div class="flex gap-2" data-question-id="${q.id}">
+                        ${[1, 2, 3, 4, 5].map(s => `<button class="score-btn w-10 h-10 rounded-full border border-slate-300 font-bold text-slate-600 bg-white hover:bg-slate-50" data-score="${s}">${s}</button>`).join('')}
+                    </div>
+                </div>
+                <div class="print-score-display hidden"></div>
+            `;
+            contentInnerEl.appendChild(questionWrapper);
+        });
+
+        contentEl.appendChild(contentInnerEl);
+        sectionEl.appendChild(headerEl);
+        sectionEl.appendChild(contentEl);
+        formContainer.appendChild(sectionEl);
+    });
+    
+    addEventListeners();
+    initializeChart();
+});
+
+function addEventListeners() {
+    document.querySelectorAll('.accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const content = header.nextElementSibling;
+            header.classList.toggle('open');
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        });
+    });
+
+    document.querySelectorAll('.toggle-ref').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.target.nextElementSibling.classList.toggle('hidden');
+        });
+    });
+    
+    document.querySelectorAll('.score-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const qId = e.target.parentElement.dataset.questionId;
+            const score = e.target.dataset.score;
+            scores[qId] = parseInt(score);
+
+            e.target.parentElement.querySelectorAll('.score-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+
+            updateSummary();
+        });
+    });
+    
+    const dateInput = document.getElementById('interviewDate');
+    dateInput.valueAsDate = new Date();
+}
+
+function updateSummary() {
+    const scoredQuestions = Object.keys(scores);
+    const questionCount = scoredQuestions.length;
+    const totalScore = scoredQuestions.reduce((sum, qId) => sum + scores[qId], 0);
+    const maxPossibleScore = questionCount * 5;
+    const averageScore = questionCount > 0 ? (totalScore / questionCount) : 0;
+    
+    document.getElementById('total-score').textContent = `${totalScore} / ${maxPossibleScore}`;
+    document.getElementById('average-score').textContent = averageScore.toFixed(1);
+
+    const recommendationBox = document.getElementById('recommendation-box');
+    const recommendationText = document.getElementById('recommendation-text');
+    const recommendationLabel = document.getElementById('recommendation-label');
+    
+    recommendationBox.className = 'col-span-2 p-4 rounded-lg transition-colors duration-300';
+
+    if (questionCount === 0) {
+        recommendationBox.classList.add('bg-slate-100');
+        recommendationLabel.className = 'text-sm font-medium text-slate-500';
+        recommendationText.textContent = 'Menunggu Penilaian';
+        recommendationText.className = 'text-2xl font-bold text-slate-800 mt-1';
+    } else if (averageScore >= 4.0) {
+        recommendationBox.classList.add('bg-green-100');
+        recommendationLabel.className = 'text-sm font-medium text-green-600';
+        recommendationText.textContent = 'Diterima';
+        recommendationText.className = 'text-2xl font-bold text-green-800 mt-1';
+    } else if (averageScore >= 3.0) {
+        recommendationBox.classList.add('bg-amber-100');
+        recommendationLabel.className = 'text-sm font-medium text-amber-600';
+        recommendationText.textContent = 'Dipertimbangkan';
+        recommendationText.className = 'text-2xl font-bold text-amber-800 mt-1';
+    } else {
+        recommendationBox.classList.add('bg-red-100');
+        recommendationLabel.className = 'text-sm font-medium text-red-600';
+        recommendationText.textContent = 'Ditolak';
+        recommendationText.className = 'text-2xl font-bold text-red-800 mt-1';
+    }
+
+    const categoryScores = interviewData.map(section => {
+        let sectionTotal = 0;
+        let sectionCount = 0;
+        section.questions.forEach(q => {
+            if(scores[q.id]) {
+                sectionTotal += scores[q.id];
+                sectionCount++;
+            }
+        });
+        return sectionCount > 0 ? sectionTotal / sectionCount : 0;
+    });
+
+    summaryChart.data.datasets[0].data = categoryScores;
+    summaryChart.update();
+    
+    updateAutomatedAnalysis(categoryScores);
+}
+
+function updateAutomatedAnalysis(categoryScores) {
+    const analysisPribadiEl = document.getElementById('analysis-pribadi');
+    const analysisKekuatanEl = document.getElementById('analysis-kekuatan');
+    const analysisPeningkatanEl = document.getElementById('analysis-peningkatan');
+    
+    const questionCount = Object.keys(scores).length;
+    if (questionCount === 0) {
+        analysisPribadiEl.textContent = 'Menunggu penilaian untuk membuat analisa.';
+        analysisKekuatanEl.textContent = 'Menunggu penilaian untuk membuat analisa.';
+        analysisPeningkatanEl.textContent = 'Menunggu penilaian untuk membuat analisa.';
+        return;
+    }
+
+    const categoryNames = interviewData.map(s => s.category.split('.')[1].trim());
+    const softSkillsScore = categoryScores[2];
+    const psychotestScore = categoryScores[3];
+    
+    let pribadiText = 'Belum ada penilaian pada kategori perilaku atau psikotes.';
+    const behavioralScores = [softSkillsScore, psychotestScore].filter(s => s > 0);
+    if (behavioralScores.length > 0) {
+        const avgBehavioralScore = behavioralScores.reduce((a, b) => a + b, 0) / behavioralScores.length;
+        if (avgBehavioralScore >= 4.0) {
+            pribadiText = "Kandidat menunjukkan kematangan pribadi, etos kerja yang kuat, dan keterampilan interpersonal yang sangat baik. Cenderung proaktif, kolaboratif, dan dapat diandalkan dalam situasi sulit.";
+        } else if (avgBehavioralScore >= 3.0) {
+            pribadiText = "Kandidat memiliki dasar perilaku dan soft skills yang cukup, namun perlu peningkatan pada aspek tertentu untuk memaksimalkan potensi kerja tim dan penanganan situasi di bawah tekanan.";
+        } else {
+            pribadiText = "Keterampilan perilaku, komunikasi, dan penanganan situasi menjadi area yang perlu dikembangkan secara signifikan untuk dapat bekerja secara efektif di lingkungan tim.";
+        }
+    }
+    analysisPribadiEl.textContent = pribadiText;
+
+    const strengths = [];
+    const weaknesses = [];
+
+    categoryScores.forEach((score, index) => {
+        if (score > 0) { 
+            if (score >= 4.0) {
+                strengths.push(categoryNames[index]);
+            }
+            if (score < 3.0) {
+                weaknesses.push(categoryNames[index]);
+            }
+        }
+    });
+
+    if (strengths.length > 0) {
+        analysisKekuatanEl.textContent = `Menunjukkan kompetensi yang sangat baik pada area: ${strengths.join(', ')}.`;
+    } else {
+        analysisKekuatanEl.textContent = 'Tidak ada kekuatan utama yang menonjol (skor rata-rata di semua kategori < 4.0).';
+    }
+
+    if (weaknesses.length > 0) {
+        analysisPeningkatanEl.textContent = `Perlu pendalaman dan peningkatan pada aspek: ${weaknesses.join(', ')}.`;
+    } else {
+        analysisPeningkatanEl.textContent = 'Tidak ada area peningkatan yang signifikan (semua skor rata-rata >= 3.0).';
+    }
+}
+
+
+function handlePrint() {
+    document.querySelectorAll('.print-score-display').forEach(el => el.textContent = '');
+    for (const qId in scores) {
+        const questionBlock = document.querySelector(`.score-btn-container[data-question-id="${qId}"]`).closest('.question-block');
+        if (questionBlock) {
+            const printScoreEl = questionBlock.querySelector('.print-score-display');
+            if (printScoreEl) {
+                printScoreEl.textContent = `Skor yang diberikan: ${scores[qId]}`;
+            }
+        }
+    }
+    window.print();
+}
+
+function resetForm() {
+    if (confirm("Apakah Anda yakin ingin mereset seluruh form? Semua data yang telah diisi akan hilang.")) {
+        // Clear scores object
+        for (const key in scores) {
+            delete scores[key];
+        }
+
+        // Clear all input fields
+        document.querySelectorAll('input[type="text"], input[type="tel"], input[type="email"], textarea').forEach(el => el.value = '');
+        document.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+        
+        // Reset date to today
+        const dateInput = document.getElementById('interviewDate');
+        dateInput.valueAsDate = new Date();
+
+        // Deactivate all score buttons
+        document.querySelectorAll('.score-btn.active').forEach(btn => btn.classList.remove('active'));
+
+        // Update summary to reset it
+        updateSummary();
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+
+function initializeChart() {
+    const ctx = document.getElementById('summaryChart').getContext('2d');
+    const dellBlue = '#007DB8';
+    const dellGray1 = '#BFBFBF';
+    const dellGray2 = '#7D7D7D';
+    const dellGray3 = '#505050';
+
+    summaryChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: interviewData.map(s => s.category.split('.')[1].trim()),
+            datasets: [{
+                label: 'Rata-rata Skor per Kategori',
+                data: [0, 0, 0, 0],
+                backgroundColor: [dellBlue, dellGray2, dellGray1, dellGray3],
+                borderRadius: 5,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, max: 5, grid: { color: '#e2e8f0' } },
+                x: { grid: { display: false } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#333333',
+                    titleColor: '#ffffff',
+                    bodyColor: '#dddddd',
+                    padding: 10,
+                    cornerRadius: 5,
+                    displayColors: false,
+                }
+            }
+        }
+    });
+}
+</script>
+
+</body>
+</html>
